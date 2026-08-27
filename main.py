@@ -1,9 +1,8 @@
-
-
 import os
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
-from dotenv import load_dotenv
+from bson import ObjectId
+from bson.errors import InvalidId
 from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -11,32 +10,28 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field
 from jose import jwt, JWTError
 from passlib.context import CryptContext
-from supabase import create_client, Client
+from pymongo import MongoClient
 
-load_dotenv()
 # ------------------------------------------------------------------
-# Config (override all of these with real environment variables)
+# Config (hardcoded — edit these values directly)
 # ------------------------------------------------------------------
-SUPABASE_URL = "https://obnhesobzgppiidigdtu.supabase.co"
-SUPABASE_KEY ="sb_publishable_-zpPTE45VhRROAZOV0xxFg_iTMVSYLA"
+MONGO_URI = "mongodb+srv://zapierobroy_db_user:k6RbBfQHjc_535XsdFERG@cluster0.ncgeqd2.mongodb.net/?appName=Cluster0"
+MONGO_DB_NAME = "library_tracker"
 
-JWT_SECRET =  "12345"
+JWT_SECRET = "12345"
 JWT_ALGORITHM = "HS256"
-JWT_EXPIRE_HOURS = int("72")
+JWT_EXPIRE_HOURS = 72
 
 AUTH_EMAIL = "library77777@yopmail.com"
-# Plaintext fallback is only used to auto-hash on first run if no hash is set.
-AUTH_PASSWORD_PLAIN ="library@12345"
+AUTH_PASSWORD_PLAIN = "library@12345"
+
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-AUTH_PASSWORD_HASH = os.getenv("AUTH_PASSWORD_HASH") or pwd_context.hash(AUTH_PASSWORD_PLAIN)
+AUTH_PASSWORD_HASH = pwd_context.hash(AUTH_PASSWORD_PLAIN)
 
-if not SUPABASE_KEY:
-    raise RuntimeError(
-        "SUPABASE_KEY is not set. Export your Supabase service_role key as "
-        "the SUPABASE_KEY environment variable before starting the server."
-    )
-
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+mongo_client = MongoClient(MONGO_URI)
+db = mongo_client[MONGO_DB_NAME]
+topics_col = db["library_topics"]
+subtopics_col = db["library_subtopics"]
 
 # ------------------------------------------------------------------
 # App setup
@@ -99,6 +94,24 @@ class TopicUpdate(BaseModel):
 
 
 # ------------------------------------------------------------------
+# Mongo helpers
+# ------------------------------------------------------------------
+def oid(id_str: str) -> ObjectId:
+    try:
+        return ObjectId(id_str)
+    except (InvalidId, TypeError):
+        raise HTTPException(status_code=400, detail="Invalid id")
+
+
+def serialize(doc: dict) -> dict:
+    if doc is None:
+        return None
+    doc = dict(doc)
+    doc["id"] = str(doc.pop("_id"))
+    return doc
+
+
+# ------------------------------------------------------------------
 # Auth helpers
 # ------------------------------------------------------------------
 def create_access_token(email: str) -> str:
@@ -150,51 +163,53 @@ def login(body: LoginRequest):
 # ------------------------------------------------------------------
 @app.get("/api/topics")
 def list_topics(user: str = Depends(get_current_user)):
-    topics = supabase.table("library_topics").select("*").order("created_at", desc=True).execute().data
-    subtopics = supabase.table("library_subtopics").select("*").order("created_at", desc=False).execute().data
+    topics = list(topics_col.find().sort("created_at", -1))
+    subtopics = list(subtopics_col.find().sort("created_at", 1))
 
     by_topic = {}
     for s in subtopics:
-        by_topic.setdefault(s["topic_id"], []).append(s)
+        by_topic.setdefault(str(s["topic_id"]), []).append(serialize(s))
 
     result = []
     for t in topics:
-        subs = by_topic.get(t["id"], [])
-        result.append({**t, "subtopics": subs})
+        t_ser = serialize(t)
+        t_ser["subtopics"] = by_topic.get(t_ser["id"], [])
+        result.append(t_ser)
     return result
 
 
 @app.post("/api/topics", status_code=201)
 def create_topic(body: TopicIn, user: str = Depends(get_current_user)):
+    now = datetime.now(timezone.utc).isoformat()
     topic_row = {
         "title": body.title,
         "notes": body.notes or "",
         "status": body.status or "pending",
         "target_date": body.target_date,
         "target_time": body.target_time,
-        "completed_at": datetime.now(timezone.utc).isoformat() if body.status == "completed" else None,
+        "completed_at": now if body.status == "completed" else None,
+        "created_at": now,
     }
-    inserted = supabase.table("library_topics").insert(topic_row).execute().data
-    if not inserted:
-        raise HTTPException(status_code=500, detail="Could not create topic")
-    topic = inserted[0]
+    inserted_id = topics_col.insert_one(topic_row).inserted_id
+    topic = serialize(topics_col.find_one({"_id": inserted_id}))
 
     created_subs = []
     for sub in (body.subtopics or []):
         if not sub.title.strip():
             continue
+        sub_now = datetime.now(timezone.utc).isoformat()
         sub_row = {
-            "topic_id": topic["id"],
+            "topic_id": str(inserted_id),
             "title": sub.title,
             "notes": sub.notes or "",
             "status": sub.status or "pending",
             "target_date": sub.target_date,
             "target_time": sub.target_time,
-            "completed_at": datetime.now(timezone.utc).isoformat() if sub.status == "completed" else None,
+            "completed_at": sub_now if sub.status == "completed" else None,
+            "created_at": sub_now,
         }
-        res = supabase.table("library_subtopics").insert(sub_row).execute().data
-        if res:
-            created_subs.append(res[0])
+        sub_id = subtopics_col.insert_one(sub_row).inserted_id
+        created_subs.append(serialize(subtopics_col.find_one({"_id": sub_id})))
 
     topic["subtopics"] = created_subs
     return topic
@@ -206,15 +221,18 @@ def update_topic(topic_id: str, body: TopicUpdate, user: str = Depends(get_curre
     updates.update(status_fields(body.status))
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")
-    res = supabase.table("library_topics").update(updates).eq("id", topic_id).execute().data
-    if not res:
+    result = topics_col.find_one_and_update(
+        {"_id": oid(topic_id)}, {"$set": updates}, return_document=True
+    )
+    if not result:
         raise HTTPException(status_code=404, detail="Topic not found")
-    return res[0]
+    return serialize(result)
 
 
 @app.delete("/api/topics/{topic_id}", status_code=204)
 def delete_topic(topic_id: str, user: str = Depends(get_current_user)):
-    supabase.table("library_topics").delete().eq("id", topic_id).execute()
+    topics_col.delete_one({"_id": oid(topic_id)})
+    subtopics_col.delete_many({"topic_id": topic_id})
     return None
 
 
@@ -223,9 +241,10 @@ def delete_topic(topic_id: str, user: str = Depends(get_current_user)):
 # ------------------------------------------------------------------
 @app.post("/api/topics/{topic_id}/subtopics", status_code=201)
 def add_subtopic(topic_id: str, body: SubtopicIn, user: str = Depends(get_current_user)):
-    topic = supabase.table("library_topics").select("id").eq("id", topic_id).execute().data
+    topic = topics_col.find_one({"_id": oid(topic_id)})
     if not topic:
         raise HTTPException(status_code=404, detail="Topic not found")
+    now = datetime.now(timezone.utc).isoformat()
     sub_row = {
         "topic_id": topic_id,
         "title": body.title,
@@ -233,12 +252,11 @@ def add_subtopic(topic_id: str, body: SubtopicIn, user: str = Depends(get_curren
         "status": body.status or "pending",
         "target_date": body.target_date,
         "target_time": body.target_time,
-        "completed_at": datetime.now(timezone.utc).isoformat() if body.status == "completed" else None,
+        "completed_at": now if body.status == "completed" else None,
+        "created_at": now,
     }
-    res = supabase.table("library_subtopics").insert(sub_row).execute().data
-    if not res:
-        raise HTTPException(status_code=500, detail="Could not create subtopic")
-    return res[0]
+    sub_id = subtopics_col.insert_one(sub_row).inserted_id
+    return serialize(subtopics_col.find_one({"_id": sub_id}))
 
 
 @app.put("/api/subtopics/{subtopic_id}")
@@ -247,15 +265,17 @@ def update_subtopic(subtopic_id: str, body: SubtopicUpdate, user: str = Depends(
     updates.update(status_fields(body.status))
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")
-    res = supabase.table("library_subtopics").update(updates).eq("id", subtopic_id).execute().data
-    if not res:
+    result = subtopics_col.find_one_and_update(
+        {"_id": oid(subtopic_id)}, {"$set": updates}, return_document=True
+    )
+    if not result:
         raise HTTPException(status_code=404, detail="Subtopic not found")
-    return res[0]
+    return serialize(result)
 
 
 @app.delete("/api/subtopics/{subtopic_id}", status_code=204)
 def delete_subtopic(subtopic_id: str, user: str = Depends(get_current_user)):
-    supabase.table("library_subtopics").delete().eq("id", subtopic_id).execute()
+    subtopics_col.delete_one({"_id": oid(subtopic_id)})
     return None
 
 
@@ -264,13 +284,11 @@ def delete_subtopic(subtopic_id: str, user: str = Depends(get_current_user)):
 # ------------------------------------------------------------------
 @app.get("/api/stats")
 def get_stats(user: str = Depends(get_current_user)):
-    topics = supabase.table("library_topics").select("*").execute().data
-    subtopics = supabase.table("library_subtopics").select("*").execute().data
+    topics = list(topics_col.find())
+    subtopics = list(subtopics_col.find())
 
-    # Trackable units = topics that have no subtopics (tracked at topic level)
-    # plus every subtopic (tracked individually).
     topic_ids_with_subs = {s["topic_id"] for s in subtopics}
-    standalone_topics = [t for t in topics if t["id"] not in topic_ids_with_subs]
+    standalone_topics = [t for t in topics if str(t["_id"]) not in topic_ids_with_subs]
 
     units = standalone_topics + subtopics
     total = len(units)
