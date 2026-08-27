@@ -1,1 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>The Reading Room — Study Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink: #1B2129;
+    --ink-2: #232B36;
+    --ink-3: #2C3644;
+    --paper: #F2ECDC;
+    --paper-dim: #E4DBC3;
+    --brass: #C08A3E;
+    --brass-light: #E0AE63;
+    --sage: #6F9172;
+    --sage-glow: rgba(111,145,114,.18);
+    --clay: #C1666B;
+    --clay-glow: rgba(193,102,107,.18);
+    --text-light: #F2ECDC;
+    --text-muted: #94A0AF;
+    --text-ink: #262019;
+    --line: rgba(242,236,220,.10);
+    --shadow: 0 20px 50px rgba(0,0,0,.35);
+    --radius: 14px;
+  }
+  *{ box-sizing: border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background: var(--ink);
+    background-image:
+      radial-gradient(circle at 15% 0%, rgba(192,138,62,.07), transparent 45%),
+      radial-gradient(circle at 90% 20%, rgba(111,145,114,.05), transparent 40%);
+    color: var(--text-light);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+  }
+  ::selection{ background: var(--brass); color: var(--ink); }
+  h1,h2,h3,.display{ font-family: 'Fraunces', serif; font-weight: 600; letter-spacing: -.01em; }
+  .mono{ font-family: 'IBM Plex Mono', monospace; }
+  a{ color: inherit; }
+  button{ font-family: inherit; cursor: pointer; }
+  ::-webkit-scrollbar{ width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb{ background: var(--ink-3); border-radius: 8px; }
+  ::-webkit-scrollbar-track{ background: transparent; }
 
+  /* ---------------- Login ---------------- */
+  #loginScreen{
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .login-card{
+    width: 100%;
+    max-width: 400px;
+    background: var(--ink-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 40px 36px 34px;
+    box-shadow: var(--shadow);
+    position: relative;
+    overflow: hidden;
+  }
+  .login-card::before{
+    content:"";
+    position:absolute; left:0; top:0; bottom:0; width:6px;
+    background: linear-gradient(180deg, var(--brass), var(--sage));
+  }
+  .login-eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--brass-light);
+    margin: 0 0 10px;
+  }
+  .login-card h1{ font-size: 28px; margin: 0 0 6px; color: var(--text-light); }
+  .login-sub{ color: var(--text-muted); font-size: 14px; margin: 0 0 28px; line-height: 1.5; }
+  .field{ margin-bottom: 16px; }
+  .field label{ display:block; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .06em; }
+  .field input{
+    width: 100%;
+    background: var(--ink);
+    border: 1px solid var(--line);
+    color: var(--text-light);
+    padding: 12px 14px;
+    border-radius: 9px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  .field input:focus{ border-color: var(--brass); box-shadow: 0 0 0 3px rgba(192,138,62,.15); }
+  .btn-primary{
+    width: 100%;
+    background: var(--brass);
+    color: #1B1508;
+    border: none;
+    padding: 13px 16px;
+    border-radius: 9px;
+    font-weight: 600;
+    font-size: 14px;
+    margin-top: 6px;
+    transition: background .15s ease, transform .1s ease;
+  }
+  .btn-primary:hover{ background: var(--brass-light); }
+  .btn-primary:active{ transform: scale(.98); }
+  .login-error{
+    background: var(--clay-glow);
+    color: #F0B7BA;
+    border: 1px solid rgba(193,102,107,.4);
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    margin-bottom: 16px;
+    display: none;
+  }
+
+  /* ---------------- App shell ---------------- */
+  #app{ display: none; min-height: 100vh; }
+  .topbar{
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 22px 36px;
+    border-bottom: 1px solid var(--line);
+    position: sticky; top:0; z-index: 20;
+    background: rgba(27,33,41,.88);
+    backdrop-filter: blur(10px);
+  }
+  .brand{ display:flex; align-items:center; gap: 12px; }
+  .brand-mark{
+    width: 34px; height: 34px; border-radius: 8px;
+    background: linear-gradient(160deg, var(--brass), #8a5f26);
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Fraunces',serif; font-weight:600; color:#1B1508; font-size: 17px;
+  }
+  .brand h1{ font-size: 18px; margin:0; }
+  .brand span{ display:block; font-size: 11px; color: var(--text-muted); font-family:'IBM Plex Mono',monospace; letter-spacing:.08em; }
+  .topbar-right{ display:flex; align-items:center; gap: 14px; }
+  .user-chip{ font-size: 12px; color: var(--text-muted); font-family:'IBM Plex Mono',monospace; }
+  .btn-ghost{
+    background: transparent; border: 1px solid var(--line); color: var(--text-light);
+    padding: 9px 14px; border-radius: 8px; font-size: 13px; transition: border-color .15s;
+  }
+  .btn-ghost:hover{ border-color: var(--brass); color: var(--brass-light); }
+
+  main{ max-width: 1180px; margin: 0 auto; padding: 32px 36px 80px; }
+
+  /* ---------------- Stats row ---------------- */
+  .stats-row{ display: grid; grid-template-columns: 1.1fr 1fr 1fr 1fr; gap: 18px; margin-bottom: 34px; }
+  @media (max-width: 900px){ .stats-row{ grid-template-columns: 1fr 1fr; } }
+  .stat-card{
+    background: var(--ink-2); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 20px 22px;
+  }
+  .stat-card .label{ font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--text-muted); font-family:'IBM Plex Mono',monospace; }
+  .stat-card .value{ font-family:'Fraunces',serif; font-size: 32px; margin-top: 8px; color: var(--text-light); }
+  .stat-card.accent-brass .value{ color: var(--brass-light); }
+  .stat-card.accent-sage .value{ color: var(--sage); }
+  .stat-card.accent-clay .value{ color: var(--clay); }
+
+  .ring-card{ display:flex; align-items:center; gap: 18px; }
+  .ring-wrap{ position: relative; width: 76px; height: 76px; flex-shrink:0; }
+  .ring-wrap svg{ transform: rotate(-90deg); }
+  .ring-wrap .pct{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-family:'IBM Plex Mono',monospace; font-size: 15px; color: var(--text-light);
+  }
+
+  /* ---------------- Toolbar ---------------- */
+  .toolbar{ display:flex; align-items:center; justify-content: space-between; margin-bottom: 22px; gap: 16px; flex-wrap: wrap; }
+  .toolbar h2{ font-size: 22px; margin:0; }
+  .filters{ display:flex; gap: 8px; background: var(--ink-2); border:1px solid var(--line); padding: 4px; border-radius: 10px; }
+  .filters button{
+    background: transparent; border: none; color: var(--text-muted); padding: 7px 14px; border-radius: 7px; font-size: 13px; font-weight: 500;
+  }
+  .filters button.active{ background: var(--brass); color: #1B1508; }
+  .btn-add{
+    background: var(--sage); color: #102012; border:none; padding: 11px 18px; border-radius: 9px; font-weight: 600; font-size: 14px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .btn-add:hover{ background: #7EA482; }
+
+  /* ---------------- Shelf / topic cards ---------------- */
+  .shelf{ display: flex; flex-direction: column; gap: 14px; }
+  .empty-state{
+    border: 1px dashed var(--line); border-radius: var(--radius); padding: 60px 20px; text-align: center; color: var(--text-muted);
+  }
+  .empty-state .display{ color: var(--text-light); font-size: 20px; margin-bottom: 6px; }
+
+  .topic-card{
+    background: var(--paper); color: var(--text-ink); border-radius: var(--radius);
+    box-shadow: var(--shadow); overflow: hidden;
+    border-left: 8px solid var(--brass);
+  }
+  .topic-card.status-completed{ border-left-color: var(--sage); }
+  .topic-head{
+    padding: 18px 22px; display:flex; align-items:center; justify-content: space-between; gap: 14px; cursor: pointer;
+  }
+  .topic-head-left{ display:flex; align-items:center; gap: 14px; min-width:0; }
+  .chevron{ transition: transform .18s ease; color: #7A6A4E; flex-shrink:0; }
+  .topic-card.open .chevron{ transform: rotate(90deg); }
+  .topic-title-wrap{ min-width:0; }
+  .topic-title{ font-family:'Fraunces',serif; font-size: 19px; font-weight:600; margin:0; }
+  .topic-meta{ font-size: 12px; color: #6E6250; margin-top: 4px; display:flex; gap: 12px; flex-wrap: wrap; font-family:'IBM Plex Mono',monospace; }
+  .topic-head-right{ display:flex; align-items:center; gap: 10px; flex-shrink:0; }
+
+  .pill{
+    display:inline-flex; align-items:center; gap: 6px; padding: 5px 11px; border-radius: 999px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
+    border: 1px solid transparent;
+  }
+  .pill.pending{ background: var(--clay-glow); color: #8E3F44; border-color: rgba(193,102,107,.35); }
+  .pill.completed{ background: var(--sage-glow); color: #3E5B41; border-color: rgba(111,145,114,.4); }
+  .pill-btn{ cursor:pointer; user-select:none; }
+  .pill-btn:hover{ filter: brightness(1.08); }
+
+  .icon-btn{
+    width: 30px; height:30px; border-radius: 7px; border: 1px solid rgba(0,0,0,.08); background: rgba(0,0,0,.03);
+    display:flex; align-items:center; justify-content:center; color: #5C4F3B; transition: background .15s;
+  }
+  .icon-btn:hover{ background: rgba(0,0,0,.08); }
+  .icon-btn.danger:hover{ background: rgba(193,102,107,.18); color: #8E3F44; }
+
+  .progress-mini{ width: 90px; height: 6px; background: rgba(0,0,0,.08); border-radius: 4px; overflow: hidden; }
+  .progress-mini > div{ height: 100%; background: var(--sage); }
+
+  .subtopic-list{ border-top: 1px solid rgba(0,0,0,.08); background: rgba(0,0,0,.02); display:none; }
+  .topic-card.open .subtopic-list{ display:block; }
+  .subtopic-row{
+    display:flex; align-items:center; justify-content: space-between; gap: 12px;
+    padding: 12px 22px 12px 46px; border-bottom: 1px dashed rgba(0,0,0,.08);
+  }
+  .subtopic-row:last-child{ border-bottom:none; }
+  .subtopic-left{ display:flex; align-items:center; gap: 10px; min-width:0; }
+  .subtopic-title{ font-size: 14px; font-weight: 500; }
+  .subtopic-meta{ font-size: 11px; color: #6E6250; font-family:'IBM Plex Mono',monospace; margin-top: 2px; }
+  .subtopic-right{ display:flex; align-items:center; gap: 8px; flex-shrink:0; }
+  .add-subtopic-row{ padding: 10px 22px 16px 46px; }
+  .link-btn{ background:none; border:none; color: #8a6a2e; font-size: 13px; font-weight:600; padding:0; }
+  .link-btn:hover{ text-decoration: underline; }
+
+  /* ---------------- Modal ---------------- */
+  .modal-overlay{
+    display:none; position: fixed; inset:0; background: rgba(10,12,15,.65); backdrop-filter: blur(3px);
+    z-index: 50; align-items: center; justify-content: center; padding: 20px;
+  }
+  .modal-overlay.open{ display:flex; }
+  .modal{
+    width: 100%; max-width: 560px; max-height: 88vh; overflow-y: auto;
+    background: var(--ink-2); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 28px;
+  }
+  .modal h3{ margin:0 0 20px; font-size: 20px; }
+  .form-row{ margin-bottom: 16px; }
+  .form-row label{ display:block; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .06em; }
+  .form-row input, .form-row textarea, .form-row select{
+    width: 100%; background: var(--ink); border: 1px solid var(--line); color: var(--text-light);
+    padding: 10px 12px; border-radius: 8px; font-size: 14px; outline:none; font-family: inherit;
+  }
+  .form-row input:focus, .form-row textarea:focus, .form-row select:focus{ border-color: var(--brass); }
+  .form-grid-2{ display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .subtopic-input-row{ display:flex; gap: 8px; margin-bottom: 8px; align-items:center; }
+  .subtopic-input-row input{ flex:1; }
+  .remove-row-btn{ background: rgba(193,102,107,.15); border:1px solid rgba(193,102,107,.3); color: var(--clay); width: 34px; height: 34px; border-radius: 8px; flex-shrink:0; }
+  .modal-actions{ display:flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+  .btn-secondary{ background: transparent; border:1px solid var(--line); color: var(--text-light); padding: 10px 18px; border-radius: 8px; font-size: 14px; }
+  .btn-secondary:hover{ border-color: var(--text-muted); }
+
+  .toast{
+    position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%) translateY(20px); opacity:0;
+    background: var(--ink-3); border: 1px solid var(--line); color: var(--text-light);
+    padding: 12px 20px; border-radius: 9px; font-size: 13px; z-index: 60; transition: all .25s ease;
+    box-shadow: var(--shadow);
+  }
+  .toast.show{ opacity:1; transform: translateX(-50%) translateY(0); }
+
+  .loading-row{ text-align:center; padding: 40px; color: var(--text-muted); font-family:'IBM Plex Mono',monospace; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<!-- ===================== LOGIN SCREEN ===================== -->
+<div id="loginScreen">
+  <div class="login-card">
+    <p class="login-eyebrow">Members Only</p>
+    <h1>The Reading Room</h1>
+    <p class="login-sub">Sign in to reach your shelves — topics, subtopics, and how far you've read through each one.</p>
+    <div class="login-error" id="loginError"></div>
+    <form id="loginForm">
+      <div class="field">
+        <label for="email">Email</label>
+        <input type="email" id="email" autocomplete="username" required />
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input type="password" id="password" autocomplete="current-password" required />
+      </div>
+      <button type="submit" class="btn-primary" id="loginBtn">Enter the Library</button>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== APP ===================== -->
+<div id="app">
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-mark">R</div>
+      <div>
+        <h1>The Reading Room</h1>
+        <span>Study &amp; reading tracker</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <span class="user-chip" id="userChip"></span>
+      <button class="btn-ghost" id="logoutBtn">Sign out</button>
+    </div>
+  </div>
+
+  <main>
+    <div class="stats-row" id="statsRow">
+      <div class="stat-card ring-card">
+        <div class="ring-wrap">
+          <svg width="76" height="76" viewBox="0 0 76 76">
+            <circle cx="38" cy="38" r="32" fill="none" stroke="var(--ink-3)" stroke-width="8"/>
+            <circle id="ringProgress" cx="38" cy="38" r="32" fill="none" stroke="var(--sage)" stroke-width="8" stroke-linecap="round" stroke-dasharray="201" stroke-dashoffset="201"/>
+          </svg>
+          <div class="pct mono" id="ringPct">0%</div>
+        </div>
+        <div>
+          <div class="label">Overall Progress</div>
+          <div style="font-size:13px;color:var(--text-muted);margin-top:4px;" id="ringSub">0 of 0 done</div>
+        </div>
+      </div>
+      <div class="stat-card accent-brass">
+        <div class="label">Topics</div>
+        <div class="value mono" id="statTopics">0</div>
+      </div>
+      <div class="stat-card accent-sage">
+        <div class="label">Completed</div>
+        <div class="value mono" id="statCompleted">0</div>
+      </div>
+      <div class="stat-card accent-clay">
+        <div class="label">Pending</div>
+        <div class="value mono" id="statPending">0</div>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <h2>Your Shelf</h2>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+        <div class="filters" id="filters">
+          <button class="active" data-filter="all">All</button>
+          <button data-filter="pending">Pending</button>
+          <button data-filter="completed">Completed</button>
+        </div>
+        <button class="btn-add" id="openAddTopic">＋ Add Topic</button>
+      </div>
+    </div>
+
+    <div class="shelf" id="shelf">
+      <div class="loading-row">Loading your shelf…</div>
+    </div>
+  </main>
+</div>
+
+<!-- ===================== ADD/EDIT TOPIC MODAL ===================== -->
+<div class="modal-overlay" id="topicModalOverlay">
+  <div class="modal">
+    <h3 id="topicModalTitle">Add a Topic</h3>
+    <form id="topicForm">
+      <input type="hidden" id="topicId" />
+      <div class="form-row">
+        <label for="topicTitle">Topic title</label>
+        <input type="text" id="topicTitle" placeholder="e.g. Data Structures" required />
+      </div>
+      <div class="form-grid-2">
+        <div class="form-row">
+          <label for="topicDate">Target date</label>
+          <input type="date" id="topicDate" />
+        </div>
+        <div class="form-row">
+          <label for="topicTime">Target time</label>
+          <input type="time" id="topicTime" />
+        </div>
+      </div>
+      <div class="form-row" id="topicStatusRow" style="display:none;">
+        <label for="topicStatus">Status</label>
+        <select id="topicStatus">
+          <option value="pending">Pending</option>
+          <option value="completed">Completed</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label for="topicNotes">Notes (optional)</label>
+        <textarea id="topicNotes" rows="2" placeholder="Any context for this topic…"></textarea>
+      </div>
+
+      <div class="form-row" id="subtopicsSection">
+        <label>Subtopics (optional)</label>
+        <div id="subtopicRows"></div>
+        <button type="button" class="link-btn" id="addSubtopicRowBtn">+ Add another subtopic</button>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" id="cancelTopicBtn">Cancel</button>
+        <button type="submit" class="btn-primary" style="width:auto;">Save Topic</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== EDIT SUBTOPIC MODAL ===================== -->
+<div class="modal-overlay" id="subModalOverlay">
+  <div class="modal">
+    <h3>Edit Subtopic</h3>
+    <form id="subForm">
+      <input type="hidden" id="subId" />
+      <div class="form-row">
+        <label for="subTitle">Title</label>
+        <input type="text" id="subTitle" required />
+      </div>
+      <div class="form-grid-2">
+        <div class="form-row">
+          <label for="subDate">Target date</label>
+          <input type="date" id="subDate" />
+        </div>
+        <div class="form-row">
+          <label for="subTime">Target time</label>
+          <input type="time" id="subTime" />
+        </div>
+      </div>
+      <div class="form-row">
+        <label for="subStatus">Status</label>
+        <select id="subStatus">
+          <option value="pending">Pending</option>
+          <option value="completed">Completed</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label for="subNotes">Notes (optional)</label>
+        <textarea id="subNotes" rows="2"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" id="cancelSubBtn">Cancel</button>
+        <button type="submit" class="btn-primary" style="width:auto;">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  const API = ""; // same origin
+  let TOKEN = localStorage.getItem("library_token") || "";
+  let TOPICS = [];
+  let CURRENT_FILTER = "all";
+
+  // ---------- helpers ----------
+  const $ = (sel) => document.querySelector(sel);
+  const $$ = (sel) => document.querySelectorAll(sel);
+
+  function toast(msg, isError){
+    const t = $("#toast");
+    t.textContent = msg;
+    t.style.borderColor = isError ? "rgba(193,102,107,.5)" : "var(--line)";
+    t.classList.add("show");
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(()=> t.classList.remove("show"), 2600);
+  }
+
+  async function api(path, opts={}){
+    const headers = Object.assign(
+      { "Content-Type": "application/json" },
+      opts.headers || {},
+      TOKEN ? { "Authorization": "Bearer " + TOKEN } : {}
+    );
+    const res = await fetch(API + path, Object.assign({}, opts, { headers }));
+    if(res.status === 401){
+      logout();
+      throw new Error("Session expired. Please sign in again.");
+    }
+    if(!res.ok){
+      let detail = "Request failed";
+      try{ detail = (await res.json()).detail || detail; }catch(e){}
+      throw new Error(detail);
+    }
+    if(res.status === 204) return null;
+    return res.json();
+  }
+
+  function fmtDate(d){
+    if(!d) return "No date";
+    const dt = new Date(d + "T00:00:00");
+    if(isNaN(dt)) return d;
+    return dt.toLocaleDateString(undefined, { month:"short", day:"numeric", year:"numeric" });
+  }
+  function fmtTime(t){
+    if(!t) return "";
+    return t;
+  }
+
+  // ---------- auth ----------
+  function showApp(){
+    $("#loginScreen").style.display = "none";
+    $("#app").style.display = "block";
+    $("#userChip").textContent = localStorage.getItem("library_email") || "";
+    loadAll();
+  }
+  function showLogin(){
+    $("#loginScreen").style.display = "flex";
+    $("#app").style.display = "none";
+  }
+  function logout(){
+    TOKEN = "";
+    localStorage.removeItem("library_token");
+    localStorage.removeItem("library_email");
+    showLogin();
+  }
+
+  $("#loginForm").addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    const email = $("#email").value.trim();
+    const password = $("#password").value;
+    const errBox = $("#loginError");
+    errBox.style.display = "none";
+    const btn = $("#loginBtn");
+    btn.textContent = "Signing in…";
+    btn.disabled = true;
+    try{
+      const res = await fetch(API + "/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password })
+      });
+      if(!res.ok){
+        const data = await res.json().catch(()=>({}));
+        throw new Error(data.detail || "Invalid email or password");
+      }
+      const data = await res.json();
+      TOKEN = data.access_token;
+      localStorage.setItem("library_token", TOKEN);
+      localStorage.setItem("library_email", data.email);
+      showApp();
+    }catch(err){
+      errBox.textContent = err.message;
+      errBox.style.display = "block";
+    }finally{
+      btn.textContent = "Enter the Library";
+      btn.disabled = false;
+    }
+  });
+
+  $("#logoutBtn").addEventListener("click", logout);
+
+  // ---------- data loading ----------
+  async function loadAll(){
+    try{
+      const [topics, stats] = await Promise.all([
+        api("/api/topics"),
+        api("/api/stats")
+      ]);
+      TOPICS = topics;
+      renderStats(stats);
+      renderShelf();
+    }catch(err){
+      toast(err.message, true);
+    }
+  }
+
+  function renderStats(stats){
+    $("#statTopics").textContent = stats.total_topics;
+    $("#statCompleted").textContent = stats.completed;
+    $("#statPending").textContent = stats.pending;
+    const pct = stats.percent_completed || 0;
+    $("#ringPct").textContent = pct + "%";
+    $("#ringSub").textContent = stats.completed + " of " + stats.total_units + " done";
+    const circle = $("#ringProgress");
+    const circumference = 201;
+    const offset = circumference - (pct/100) * circumference;
+    circle.style.strokeDashoffset = offset;
+  }
+
+  function topicProgress(topic){
+    if(!topic.subtopics || topic.subtopics.length === 0){
+      return topic.status === "completed" ? 100 : 0;
+    }
+    const done = topic.subtopics.filter(s=>s.status==="completed").length;
+    return Math.round((done / topic.subtopics.length) * 100);
+  }
+
+  function matchesFilter(item){
+    if(CURRENT_FILTER === "all") return true;
+    return item.status === CURRENT_FILTER;
+  }
+
+  function renderShelf(){
+    const shelf = $("#shelf");
+    shelf.innerHTML = "";
+
+    const visibleTopics = TOPICS.filter(t=>{
+      if(CURRENT_FILTER === "all") return true;
+      if(t.subtopics && t.subtopics.length){
+        return t.subtopics.some(matchesFilter);
+      }
+      return matchesFilter(t);
+    });
+
+    if(visibleTopics.length === 0){
+      shelf.innerHTML = `<div class="empty-state">
+        <div class="display">Your shelf is empty here</div>
+        <div>Add a topic to start tracking what you're reading.</div>
+      </div>`;
+      return;
+    }
+
+    visibleTopics.forEach(topic=>{
+      const card = document.createElement("div");
+      card.className = "topic-card status-" + topic.status;
+      card.dataset.id = topic.id;
+
+      const hasSubs = topic.subtopics && topic.subtopics.length > 0;
+      const progress = topicProgress(topic);
+      const metaBits = [];
+      if(topic.target_date) metaBits.push("Due " + fmtDate(topic.target_date) + (topic.target_time ? " · " + fmtTime(topic.target_time) : ""));
+      metaBits.push(hasSubs ? topic.subtopics.length + " subtopic" + (topic.subtopics.length>1?"s":"") : "Standalone topic");
+
+      card.innerHTML = `
+        <div class="topic-head">
+          <div class="topic-head-left">
+            <svg class="chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M5 3l6 5-6 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <div class="topic-title-wrap">
+              <p class="topic-title">${escapeHtml(topic.title)}</p>
+              <div class="topic-meta">${metaBits.map(m=>`<span>${escapeHtml(m)}</span>`).join("")}</div>
+            </div>
+          </div>
+          <div class="topic-head-right">
+            ${hasSubs ? `<div class="progress-mini" title="${progress}% complete"><div style="width:${progress}%;"></div></div>` :
+              `<span class="pill pill-btn ${topic.status}" data-action="toggle-topic-status">${topic.status === "completed" ? "✓ Completed" : "Pending"}</span>`}
+            <button class="icon-btn" data-action="edit-topic" title="Edit">${editIcon()}</button>
+            <button class="icon-btn danger" data-action="delete-topic" title="Delete">${trashIcon()}</button>
+          </div>
+        </div>
+        <div class="subtopic-list">
+          ${hasSubs ? topic.subtopics.map(sub=>subtopicRowHtml(sub)).join("") : ""}
+          <div class="add-subtopic-row">
+            <button type="button" class="link-btn" data-action="quick-add-sub">+ Add a subtopic to “${escapeHtml(topic.title)}”</button>
+          </div>
+        </div>
+      `;
+
+      card.querySelector(".topic-head").addEventListener("click", (e)=>{
+        if(e.target.closest("[data-action]")) return;
+        card.classList.toggle("open");
+      });
+      card.querySelector('[data-action="edit-topic"]').addEventListener("click", (e)=>{ e.stopPropagation(); openEditTopic(topic); });
+      card.querySelector('[data-action="delete-topic"]').addEventListener("click", (e)=>{ e.stopPropagation(); deleteTopic(topic); });
+      const toggleBtn = card.querySelector('[data-action="toggle-topic-status"]');
+      if(toggleBtn){
+        toggleBtn.addEventListener("click", (e)=>{ e.stopPropagation(); toggleTopicStatus(topic); });
+      }
+      card.querySelector('[data-action="quick-add-sub"]').addEventListener("click", (e)=>{
+        e.stopPropagation();
+        quickAddSubtopic(topic);
+      });
+      card.querySelectorAll(".subtopic-row").forEach(row=>{
+        const subId = row.dataset.id;
+        const sub = topic.subtopics.find(s=>s.id === subId);
+        row.querySelector('[data-action="toggle-sub-status"]').addEventListener("click", (e)=>{ e.stopPropagation(); toggleSubStatus(sub); });
+        row.querySelector('[data-action="edit-sub"]').addEventListener("click", (e)=>{ e.stopPropagation(); openEditSub(sub); });
+        row.querySelector('[data-action="delete-sub"]').addEventListener("click", (e)=>{ e.stopPropagation(); deleteSub(sub); });
+      });
+
+      shelf.appendChild(card);
+    });
+  }
+
+  function subtopicRowHtml(sub){
+    const meta = [];
+    if(sub.target_date) meta.push(fmtDate(sub.target_date) + (sub.target_time ? " · " + fmtTime(sub.target_time) : ""));
+    return `
+      <div class="subtopic-row" data-id="${sub.id}">
+        <div class="subtopic-left">
+          <div>
+            <div class="subtopic-title">${escapeHtml(sub.title)}</div>
+            ${meta.length ? `<div class="subtopic-meta">${escapeHtml(meta.join(""))}</div>` : ""}
+          </div>
+        </div>
+        <div class="subtopic-right">
+          <span class="pill pill-btn ${sub.status}" data-action="toggle-sub-status">${sub.status === "completed" ? "✓ Done" : "Pending"}</span>
+          <button type="button" class="icon-btn" data-action="edit-sub" title="Edit">${editIcon()}</button>
+          <button type="button" class="icon-btn danger" data-action="delete-sub" title="Delete">${trashIcon()}</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function editIcon(){
+    return `<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M11.5 2.5l2 2L5 13H3v-2l8.5-8.5z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>`;
+  }
+  function trashIcon(){
+    return `<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 5h10M6.5 5V3.5h3V5M4.5 5l.5 8.5h6l.5-8.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  }
+  function escapeHtml(str){
+    const div = document.createElement("div");
+    div.textContent = str == null ? "" : str;
+    return div.innerHTML;
+  }
+
+  // ---------- filters ----------
+  $("#filters").addEventListener("click", (e)=>{
+    const btn = e.target.closest("button[data-filter]");
+    if(!btn) return;
+    CURRENT_FILTER = btn.dataset.filter;
+    $$("#filters button").forEach(b=>b.classList.toggle("active", b===btn));
+    renderShelf();
+  });
+
+  // ---------- topic status toggle ----------
+  async function toggleTopicStatus(topic){
+    const newStatus = topic.status === "completed" ? "pending" : "completed";
+    try{
+      await api(`/api/topics/${topic.id}`, { method:"PUT", body: JSON.stringify({ status: newStatus }) });
+      toast("Topic marked " + newStatus);
+      await loadAll();
+    }catch(err){ toast(err.message, true); }
+  }
+  async function toggleSubStatus(sub){
+    const newStatus = sub.status === "completed" ? "pending" : "completed";
+    try{
+      await api(`/api/subtopics/${sub.id}`, { method:"PUT", body: JSON.stringify({ status: newStatus }) });
+      toast("Subtopic marked " + newStatus);
+      await loadAll();
+    }catch(err){ toast(err.message, true); }
+  }
+
+  // ---------- delete ----------
+  async function deleteTopic(topic){
+    if(!confirm(`Delete "${topic.title}" and all its subtopics? This can't be undone.`)) return;
+    try{
+      await api(`/api/topics/${topic.id}`, { method:"DELETE" });
+      toast("Topic deleted");
+      await loadAll();
+    }catch(err){ toast(err.message, true); }
+  }
+  async function deleteSub(sub){
+    if(!confirm(`Delete "${sub.title}"?`)) return;
+    try{
+      await api(`/api/subtopics/${sub.id}`, { method:"DELETE" });
+      toast("Subtopic deleted");
+      await loadAll();
+    }catch(err){ toast(err.message, true); }
+  }
+
+  async function quickAddSubtopic(topic){
+    const title = prompt(`New subtopic for "${topic.title}":`);
+    if(!title || !title.trim()) return;
+    try{
+      await api(`/api/topics/${topic.id}/subtopics`, { method:"POST", body: JSON.stringify({ title: title.trim() }) });
+      toast("Subtopic added");
+      await loadAll();
+    }catch(err){ toast(err.message, true); }
+  }
+
+  // ---------- Add / Edit Topic modal ----------
+  const topicModal = $("#topicModalOverlay");
+  let subtopicRowCount = 0;
+
+  function resetTopicForm(){
+    $("#topicForm").reset();
+    $("#topicId").value = "";
+    $("#topicStatusRow").style.display = "none";
+    $("#subtopicsSection").style.display = "block";
+    $("#subtopicRows").innerHTML = "";
+    subtopicRowCount = 0;
+    addSubtopicRow();
+  }
+
+  function addSubtopicRow(value){
+    const id = "srow_" + (subtopicRowCount++);
+    const row = document.createElement("div");
+    row.className = "subtopic-input-row";
+    row.dataset.rowId = id;
+    row.innerHTML = `
+      <input type="text" placeholder="Subtopic title (optional)" value="${value ? escapeHtml(value) : ""}" />
+      <button type="button" class="remove-row-btn" title="Remove">×</button>
+    `;
+    row.querySelector(".remove-row-btn").addEventListener("click", ()=> row.remove());
+    $("#subtopicRows").appendChild(row);
+  }
+
+  $("#addSubtopicRowBtn").addEventListener("click", ()=> addSubtopicRow());
+
+  $("#openAddTopic").addEventListener("click", ()=>{
+    $("#topicModalTitle").textContent = "Add a Topic";
+    resetTopicForm();
+    topicModal.classList.add("open");
+  });
+  $("#cancelTopicBtn").addEventListener("click", ()=> topicModal.classList.remove("open"));
+  topicModal.addEventListener("click", (e)=>{ if(e.target === topicModal) topicModal.classList.remove("open"); });
+
+  function openEditTopic(topic){
+    $("#topicModalTitle").textContent = "Edit Topic";
+    resetTopicForm();
+    $("#topicId").value = topic.id;
+    $("#topicTitle").value = topic.title;
+    $("#topicDate").value = topic.target_date || "";
+    $("#topicTime").value = topic.target_time || "";
+    $("#topicNotes").value = topic.notes || "";
+    // Editing an existing topic only touches the topic itself; subtopics are
+    // managed inline on the card, so hide the subtopic builder here.
+    $("#subtopicsSection").style.display = "none";
+    if(!topic.subtopics || topic.subtopics.length === 0){
+      $("#topicStatusRow").style.display = "block";
+      $("#topicStatus").value = topic.status;
+    }
+    topicModal.classList.add("open");
+  }
+
+  $("#topicForm").addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    const id = $("#topicId").value;
+    const payload = {
+      title: $("#topicTitle").value.trim(),
+      target_date: $("#topicDate").value || null,
+      target_time: $("#topicTime").value || null,
+      notes: $("#topicNotes").value.trim()
+    };
+    try{
+      if(id){
+        if($("#topicStatusRow").style.display !== "none"){
+          payload.status = $("#topicStatus").value;
+        }
+        await api(`/api/topics/${id}`, { method:"PUT", body: JSON.stringify(payload) });
+        toast("Topic updated");
+      }else{
+        const subtopics = Array.from($$("#subtopicRows .subtopic-input-row input"))
+          .map(inp=>inp.value.trim())
+          .filter(Boolean)
+          .map(title=>({ title }));
+        payload.subtopics = subtopics;
+        await api("/api/topics", { method:"POST", body: JSON.stringify(payload) });
+        toast("Topic added");
+      }
+      topicModal.classList.remove("open");
+      await loadAll();
+    }catch(err){ toast(err.message, true); }
+  });
+
+  // ---------- Edit Subtopic modal ----------
+  const subModal = $("#subModalOverlay");
+  function openEditSub(sub){
+    $("#subId").value = sub.id;
+    $("#subTitle").value = sub.title;
+    $("#subDate").value = sub.target_date || "";
+    $("#subTime").value = sub.target_time || "";
+    $("#subStatus").value = sub.status;
+    $("#subNotes").value = sub.notes || "";
+    subModal.classList.add("open");
+  }
+  $("#cancelSubBtn").addEventListener("click", ()=> subModal.classList.remove("open"));
+  subModal.addEventListener("click", (e)=>{ if(e.target === subModal) subModal.classList.remove("open"); });
+
+  $("#subForm").addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    const id = $("#subId").value;
+    const payload = {
+      title: $("#subTitle").value.trim(),
+      target_date: $("#subDate").value || null,
+      target_time: $("#subTime").value || null,
+      status: $("#subStatus").value,
+      notes: $("#subNotes").value.trim()
+    };
+    try{
+      await api(`/api/subtopics/${id}`, { method:"PUT", body: JSON.stringify(payload) });
+      toast("Subtopic updated");
+      subModal.classList.remove("open");
+      await loadAll();
+    }catch(err){ toast(err.message, true); }
+  });
+
+  // ---------- boot ----------
+  if(TOKEN){ showApp(); } else { showLogin(); }
+})();
+</script>
+</body>
+</html>
